@@ -45,7 +45,23 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
     && rm litecoin.tar.gz
 
-FROM debian:buster-slim as builder
+ENV MONACOIN_VERSION 0.16.3
+ENV MONACOIN_PGP_KEY 45C7DEE9BC1871A8
+ENV MONACOIN_URL https://github.com/monacoinproject/monacoin/releases/download/monacoin-${MONACOIN_VERSION}/monacoin-${MONACOIN_VERSION}-x86_64-linux-gnu.tar.gz
+ENV MONACOIN_ASC_URL https://github.com/monacoinproject/monacoin/releases/download/monacoin-${MONACOIN_VERSION}/monacoin-${MONACOIN_VERSION}-signatures.asc
+ENV MONACOIN_SHA256 9de01a4facd3dab6a9fdaa68f5d8ae0e464c058920f6e3ec106bcd5bad238d1c
+
+# install monacoin binaries
+RUN mkdir /opt/monacoin && cd /opt/monacoin \
+    && wget -qO monacoin.tar.gz "$MONACOIN_URL" \
+    && gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys "$MONACOIN_PGP_KEY" \
+    && wget -qO monacoin.asc "$MONACOIN_ASC_URL" \
+    && gpg --verify monacoin.asc \
+    && BD=monacoin-$MONACOIN_VERSION/bin \
+    && tar -xzvf monacoin.tar.gz $BD/monacoin-cli --strip-components=1 --exclude=*-qt \
+    && rm monacoin.tar.gz
+
+FROM debian:stretch-slim as builder
 
 ENV LIGHTNINGD_VERSION=master
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential git libtool python3 python3-mako wget gnupg dirmngr git gettext
@@ -96,6 +112,7 @@ VOLUME [ "/root/.lightning" ]
 COPY --from=builder /tmp/lightning_install/ /usr/local/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
+COPY --from=downloader /opt/monacoin/bin /usr/bin
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835
